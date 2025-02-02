@@ -1,0 +1,19 @@
+﻿@page "/stream"
+@page "/stream/{Topic}"
+@rendermode InteractiveAuto
+
+<PageTitle>Stream: @TopicView</PageTitle>
+
+<h1>Stream: @TopicView</h1>
+
+@code {
+    [Parameter]
+    public string? Topic { get; set; } = string.Empty;
+    private string TopicView { get; set; } = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        TopicView = string.IsNullOrWhiteSpace(Topic) ? "Chaos" : Topic;
+        base.OnInitialized();
+    }
+}
