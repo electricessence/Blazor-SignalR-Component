@@ -4,10 +4,27 @@ namespace SignalR.SharedHubConnectionManager;
 /// <summary>
 /// A wrapper around <see cref="HubConnection"/> that implements <see cref="IHubAdapter"/>.
 /// </summary>
-public class HubConnectionAdapter(HubConnection hubConnection) : IHubAdapter
+public class HubConnectionAdapter : IHubAdapter, ISpawn<IHubAdapterNode>
 {
-	private readonly HubConnection _hubConnection
-		= hubConnection ?? throw new ArgumentNullException(nameof(hubConnection));
+	#region Spawn Tracking
+	private readonly HubAdapterSpawnTracker _spawnTracker;
+
+	/// <summary>
+	/// Spawns a new instance of a <see cref="HubAdapter"/>.
+	/// </summary>
+	public HubAdapter Spawn() => _spawnTracker.Spawn();
+
+	/// <inheritdoc />
+	IHubAdapterNode ISpawn<IHubAdapterNode>.Spawn() => _spawnTracker.Spawn();
+	#endregion
+
+	private readonly HubConnection _hubConnection;
+
+	public HubConnectionAdapter(HubConnection hubConnection)
+	{
+		_hubConnection = hubConnection ?? throw new ArgumentNullException(nameof(hubConnection));
+		_spawnTracker = new(this);
+	}
 
 	/// <inheritdoc />
 	public ValueTask DisposeAsync()
@@ -40,4 +57,5 @@ public class HubConnectionAdapter(HubConnection hubConnection) : IHubAdapter
 	/// <inheritdoc />
 	public IAsyncEnumerable<TResult> StreamAsyncCore<TResult>(string methodName, object?[] args, CancellationToken cancellationToken = default)
 		=> _hubConnection.StreamAsyncCore<TResult>(methodName, args, cancellationToken);
+
 }

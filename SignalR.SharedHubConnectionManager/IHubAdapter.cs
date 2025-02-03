@@ -3,7 +3,7 @@
 /// <summary>
 /// Represents a proxy for a SignalR hub connection.
 /// </summary>
-public interface IHubAdapter : IAsyncDisposable
+public interface IHubAdapter
 {
 	// Only the necessary methods for communicating with the hub are exposed.
 
@@ -27,4 +27,8 @@ public interface IHubAdapter : IAsyncDisposable
 
 	/// <inheritdoc cref="HubConnection.StreamAsyncCore{TResult}(string, object?[], CancellationToken)"/>
 	IAsyncEnumerable<TResult> StreamAsyncCore<TResult>(string methodName, object?[] args, CancellationToken cancellationToken = default);
+}
+
+public interface IHubAdapterNode : IDisposable, IHubAdapter, ISpawn<IHubAdapterNode>
+{
 }
