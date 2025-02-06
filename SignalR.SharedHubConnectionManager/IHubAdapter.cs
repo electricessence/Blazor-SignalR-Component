@@ -39,6 +39,20 @@ public interface IHubAdapter
 
 	/// <inheritdoc cref="HubConnection.Remove(string)"/>
 	void Remove(string methodName);
+
+	/// <remarks>
+	/// For a shared connection, this simply ensures a connection is open.
+	/// A connection is not automatically started when created and requires at least one call to this method to start.
+	/// 'On' and 'Remove' methods can be called before starting the connection.
+	/// </remarks>
+	/// <inheritdoc cref="HubConnection.StartAsync(CancellationToken)"/>
+	Task StartAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Event is fired when the connection is established either after starting or after a reconnection.
+	/// </summary>
+	/// <remarks>Event is fired for new subscribers if the connection is already connected.</remarks>
+	event Action<IHubAdapter> Connected;
 }
 
 /// <inheritdoc />

@@ -309,4 +309,8 @@ public class HubAdapterNode(
 	}
 
 	IHubAdapterNode ISpawn<IHubAdapterNode>.Spawn() => Spawn();
+
+	/// <inheritdoc />
+	public Task StartAsync(CancellationToken cancellationToken = default)
+		=> Host.StartAsync(cancellationToken);
 }

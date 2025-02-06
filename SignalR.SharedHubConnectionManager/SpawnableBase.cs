@@ -34,6 +34,13 @@ public abstract class SpawnableBase<T>() : ISpawn<T>
 	int _disposed = 0;
 
 	/// <summary>
+	/// Throws an <see cref="ObjectDisposedException"/> if the object has been disposed.
+	/// </summary>
+	/// <exception cref="ObjectDisposedException">Thrown if the object has been disposed.</exception>
+	protected void AssertIsAlive()
+		=> ObjectDisposedException.ThrowIf(_disposed is 1, this);
+
+	/// <summary>
 	/// Disposed of all spawned instances.
 	/// </summary>
 	/// <remarks>Is thread safe and can be called multiple times.</remarks>
