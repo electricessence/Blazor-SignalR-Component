@@ -4,88 +4,10 @@ using System.Runtime.CompilerServices;
 namespace SignalR.SharedHubConnectionManager;
 
 /// <summary>
-/// Exposes methods for interacting with a SignalR hub connection
-/// but actual connecting and disconnecting is managed by the parent adapter.
+/// Acts as a wrapper around a <see cref="IHubAdapter"/> that manages disposal.
 /// </summary>
-public class HubAdapter(IHubAdapter host, Action<HubAdapter> onDispose)
-	: SpawnableBase<HubAdapter>, IHubAdapterNode
+public abstract class HubAdapterHostBase(IHubAdapter host) : IHubAdapter
 {
-	private IHubAdapter? _host = host ?? throw new ArgumentNullException(nameof(host));
-	private Action<HubAdapter>? _onDispose = onDispose ?? throw new ArgumentNullException(nameof(onDispose));
-
-	// We'll need to synchronize the dictionary to avoid leaks so a ConcurrentDictionary won't help here.
-	private readonly Lock _subSync = new();
-	private readonly Dictionary<string, HashSet<Subscription>> _subscriptions = [];
-
-	private sealed class Subscription(Action onDispose, IDisposable sub) : IDisposable
-	{
-		private Action? _onDispose = onDispose;
-
-		internal readonly IDisposable Sub = sub;
-
-		public void Dispose()
-		{
-			// Step 1) Avoid double removal.
-			var d = Interlocked.Exchange(ref _onDispose, null);
-
-			// Step 2) Dispose the subscription.
-			Sub.Dispose();
-
-			// Step 3) Remove the subscription from the parent.
-			d?.Invoke();
-		}
-	}
-
-	private Subscription Subscribe(string methodName, IDisposable sub)
-	{
-		HashSet<Subscription>? registry = null;
-		Subscription? s = null;
-
-		// Setup the subscription.
-		s = new Subscription(() =>
-		{
-			// Setup the removal action.
-			Debug.Assert(registry is not null);
-			Debug.Assert(s is not null);
-
-			// Removal may require a cleanup of the registry so we need to lock everything.
-			lock (_subSync)
-			{
-				registry.Remove(s);
-				if (registry.Count == 0)
-					_subscriptions.Remove(methodName);
-			}
-		}, sub);
-
-		// Add the subscription to the registry.
-		lock (_subSync)
-		{
-			// Keep the lock to avoid stray removals.
-			if (_subscriptions.TryGetValue(methodName, out registry))
-			{
-				registry.Add(s);
-			}
-			else
-			{
-				_subscriptions[methodName] = registry = [s];
-			}
-		}
-
-		// Return the subscription.
-		return s;
-	}
-
-	private IHubAdapter Host
-	{
-		get
-		{
-			var c = _host;
-			ObjectDisposedException.ThrowIf(c is null, this);
-			return c;
-		}
-	}
-
-	#region CancellationToken Management
 	private readonly Lock _ctsSync = new();
 	private HashSet<CancellationTokenSource>? _ctsInstances = [];
 	private readonly CancellationTokenSource _cts = new();
@@ -116,9 +38,16 @@ public class HubAdapter(IHubAdapter host, Action<HubAdapter> onDispose)
 			_ctsInstances?.Remove(cts);
 		}
 	}
-	#endregion
 
-	#region Cancellable Methods
+
+
+	public ValueTask DisposeAsync()
+	{
+		OnDispose();
+
+		return host.DisposeAsync();
+	}
+
 	/// <inheritdoc />
 	public Task SendCoreAsync(
 		string methodName, object?[] args,
@@ -259,64 +188,13 @@ public class HubAdapter(IHubAdapter host, Action<HubAdapter> onDispose)
 			}
 		}
 	}
-	#endregion
 
 	/// <inheritdoc />
-	public IDisposable On(string methodName, Type[] parameterTypes, Func<object?[], object, Task<object?>> handler, object state)
-		=> Subscribe(methodName, Host.On(methodName, parameterTypes, handler, state));
+	public abstract IDisposable On(string methodName, Type[] parameterTypes, Func<object?[], object, Task<object?>> handler, object state);
 
 	/// <inheritdoc />
-	public IDisposable On(string methodName, Type[] parameterTypes, Func<object?[], object, Task> handler, object state)
-		=> Subscribe(methodName, Host.On(methodName, parameterTypes, handler, state));
+	public abstract IDisposable On(string methodName, Type[] parameterTypes, Func<object?[], object, Task> handler, object state);
 
 	/// <inheritdoc />
-	public void Remove(string methodName)
-		=> Host.Remove(methodName);
-
-	/// <inheritdoc />
-	public void Dispose()
-	{
-		// Step 1) Check if we're already disposed.
-		var p = Interlocked.Exchange(ref _host, null);
-		if (p is null) return;
-
-		// Step 2) Cleanup the _onDispose reference.
-		var d = Interlocked.Exchange(ref _onDispose, null);
-		Debug.Assert(d is not null);
-
-		// Step 3) Cleanup all the spawned adapters.
-		DisposeSpawned();
-
-		// Step 4) Cancel any running async methods.
-		using var cts = _cts;
-		_cts.Cancel();
-
-		// Step 5) Dispose any remaining CTS instances.
-		HashSet<CancellationTokenSource> ctsInstances;
-		lock (_ctsSync)
-		{
-			Debug.Assert(_ctsInstances is not null);
-			ctsInstances = _ctsInstances;
-			_ctsInstances = null;
-		}
-
-		foreach (var ctsi in ctsInstances!)
-		{
-			ctsi.Dispose();
-		}
-
-		// Step 6) Cleanup any remaining local subscriptions.
-		foreach (var sub in _subscriptions.Values.SelectMany(static s => s))
-		{
-			// Just dispose the underlying subscription.
-			// Don't allow exceptions during dispose.
-			try { sub.Sub.Dispose(); }
-			catch { }
-		}
-
-		_subscriptions.Clear();
-
-		// Step 7) Signal to the host that we're done.
-		d.Invoke(this);
-	}
+	public abstract void Remove(string methodName);
 }

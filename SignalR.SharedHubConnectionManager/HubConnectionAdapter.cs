@@ -4,58 +4,55 @@ namespace SignalR.SharedHubConnectionManager;
 /// <summary>
 /// A wrapper around <see cref="HubConnection"/> that implements <see cref="IHubAdapter"/>.
 /// </summary>
-public class HubConnectionAdapter : IHubAdapter, ISpawn<IHubAdapterNode>
+public class HubConnectionAdapter(HubConnection hubConnection) : IHubAdapter
 {
-	#region Spawn Tracking
-	private readonly HubAdapterSpawnTracker _spawnTracker;
-
 	/// <summary>
-	/// Spawns a new instance of a <see cref="HubAdapter"/>.
+	/// The <see cref="HubConnection"/> instance.
 	/// </summary>
-	public HubAdapter Spawn() => _spawnTracker.Spawn();
-
-	/// <inheritdoc />
-	IHubAdapterNode ISpawn<IHubAdapterNode>.Spawn() => _spawnTracker.Spawn();
-	#endregion
-
-	private readonly HubConnection _hubConnection;
-
-	public HubConnectionAdapter(HubConnection hubConnection)
-	{
-		_hubConnection = hubConnection ?? throw new ArgumentNullException(nameof(hubConnection));
-		_spawnTracker = new(this);
-	}
+	public HubConnection Connection { get; }
+		= hubConnection ?? throw new ArgumentNullException(nameof(hubConnection));
 
 	/// <inheritdoc />
 	public ValueTask DisposeAsync()
-		=> _hubConnection.DisposeAsync();
+		=> Connection.DisposeAsync();
 
 	/// <inheritdoc />
-	public Task<object?> InvokeCoreAsync(string methodName, Type returnType, object?[] args, CancellationToken cancellationToken = default)
-		=> _hubConnection.InvokeCoreAsync(methodName, returnType, args, cancellationToken);
+	public Task SendCoreAsync(
+		string methodName, object?[] args,
+		CancellationToken cancellationToken = default)
+		=> Connection.SendCoreAsync(methodName, args, cancellationToken);
 
 	/// <inheritdoc />
-	public IDisposable On(string methodName, Type[] parameterTypes, Func<object?[], object, Task<object?>> handler, object state)
-		=> _hubConnection.On(methodName, parameterTypes, handler, state);
+	public Task<object?> InvokeCoreAsync(
+		string methodName, Type returnType, object?[] args,
+		CancellationToken cancellationToken = default)
+		=> Connection.InvokeCoreAsync(methodName, returnType, args, cancellationToken);
 
 	/// <inheritdoc />
-	public IDisposable On(string methodName, Type[] parameterTypes, Func<object?[], object, Task> handler, object state)
-		=> _hubConnection.On(methodName, parameterTypes, handler, state);
+	public Task<ChannelReader<object?>> StreamAsChannelCoreAsync(
+		string methodName, Type returnType, object?[] args,
+		CancellationToken cancellationToken = default)
+		=> Connection.StreamAsChannelCoreAsync(methodName, returnType, args, cancellationToken);
+
+	/// <inheritdoc />
+	public IAsyncEnumerable<TResult> StreamAsyncCore<TResult>(
+		string methodName, object?[] args,
+		CancellationToken cancellationToken = default)
+		=> Connection.StreamAsyncCore<TResult>(methodName, args, cancellationToken);
+
+	/// <inheritdoc />
+	public IDisposable On(
+		string methodName, Type[] parameterTypes,
+		Func<object?[], object, Task<object?>> handler, object state)
+		=> Connection.On(methodName, parameterTypes, handler, state);
+
+	/// <inheritdoc />
+	public IDisposable On(
+		string methodName, Type[] parameterTypes,
+		Func<object?[], object, Task> handler, object state)
+		=> Connection.On(methodName, parameterTypes, handler, state);
 
 	/// <inheritdoc />
 	public void Remove(string methodName)
-		=> _hubConnection.Remove(methodName);
-
-	/// <inheritdoc />
-	public Task SendCoreAsync(string methodName, object?[] args, CancellationToken cancellationToken = default)
-		=> _hubConnection.SendCoreAsync(methodName, args, cancellationToken);
-
-	/// <inheritdoc />
-	public Task<ChannelReader<object?>> StreamAsChannelCoreAsync(string methodName, Type returnType, object?[] args, CancellationToken cancellationToken = default)
-		=> _hubConnection.StreamAsChannelCoreAsync(methodName, returnType, args, cancellationToken);
-
-	/// <inheritdoc />
-	public IAsyncEnumerable<TResult> StreamAsyncCore<TResult>(string methodName, object?[] args, CancellationToken cancellationToken = default)
-		=> _hubConnection.StreamAsyncCore<TResult>(methodName, args, cancellationToken);
-
+		=> Connection.Remove(methodName);
 }

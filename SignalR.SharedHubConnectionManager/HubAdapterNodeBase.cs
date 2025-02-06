@@ -7,73 +7,10 @@ namespace SignalR.SharedHubConnectionManager;
 /// Exposes methods for interacting with a SignalR hub connection
 /// but actual connecting and disconnecting is managed by the parent adapter.
 /// </summary>
-public class HubAdapter(IHubAdapter host, Action<HubAdapter> onDispose)
+public abstract class HubAdapterNode(IHubAdapter host)
 	: SpawnableBase<HubAdapter>, IHubAdapterNode
 {
 	private IHubAdapter? _host = host ?? throw new ArgumentNullException(nameof(host));
-	private Action<HubAdapter>? _onDispose = onDispose ?? throw new ArgumentNullException(nameof(onDispose));
-
-	// We'll need to synchronize the dictionary to avoid leaks so a ConcurrentDictionary won't help here.
-	private readonly Lock _subSync = new();
-	private readonly Dictionary<string, HashSet<Subscription>> _subscriptions = [];
-
-	private sealed class Subscription(Action onDispose, IDisposable sub) : IDisposable
-	{
-		private Action? _onDispose = onDispose;
-
-		internal readonly IDisposable Sub = sub;
-
-		public void Dispose()
-		{
-			// Step 1) Avoid double removal.
-			var d = Interlocked.Exchange(ref _onDispose, null);
-
-			// Step 2) Dispose the subscription.
-			Sub.Dispose();
-
-			// Step 3) Remove the subscription from the parent.
-			d?.Invoke();
-		}
-	}
-
-	private Subscription Subscribe(string methodName, IDisposable sub)
-	{
-		HashSet<Subscription>? registry = null;
-		Subscription? s = null;
-
-		// Setup the subscription.
-		s = new Subscription(() =>
-		{
-			// Setup the removal action.
-			Debug.Assert(registry is not null);
-			Debug.Assert(s is not null);
-
-			// Removal may require a cleanup of the registry so we need to lock everything.
-			lock (_subSync)
-			{
-				registry.Remove(s);
-				if (registry.Count == 0)
-					_subscriptions.Remove(methodName);
-			}
-		}, sub);
-
-		// Add the subscription to the registry.
-		lock (_subSync)
-		{
-			// Keep the lock to avoid stray removals.
-			if (_subscriptions.TryGetValue(methodName, out registry))
-			{
-				registry.Add(s);
-			}
-			else
-			{
-				_subscriptions[methodName] = registry = [s];
-			}
-		}
-
-		// Return the subscription.
-		return s;
-	}
 
 	private IHubAdapter Host
 	{
