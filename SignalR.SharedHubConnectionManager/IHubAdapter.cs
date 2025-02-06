@@ -42,4 +42,4 @@ public interface IHubAdapter
 }
 
 /// <inheritdoc />
-public interface IHubAdapterNode : IHubAdapter, ISpawn<IHubAdapterNode>, IDisposable;
+public interface IHubAdapterNode : IHubAdapter, ISpawn<IHubAdapterNode>, IAsyncDisposable;

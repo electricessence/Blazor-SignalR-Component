@@ -4,11 +4,12 @@ using System.Runtime.CompilerServices;
 namespace SignalR.SharedHubConnectionManager;
 
 /// <summary>
-/// A tracker for spawned <see cref="HubAdapter"/> instances.
-/// A tracker for spawned <see cref="HubAdapter"/> instances.
+/// A tracker for spawned <see cref="HubAdapterNode"/> instances.
+/// A tracker for spawned <see cref="HubAdapterNode"/> instances.
 /// </summary>
-internal class SpawnTracker<T> : IDisposable
-	where T : IDisposable
+internal class SpawnTracker<T>
+	: IAsyncDisposable
+	where T : IAsyncDisposable
 {
 	private static readonly ConcurrentBag<HashSet<T>> _hashSetPool = [];
 
@@ -19,7 +20,7 @@ internal class SpawnTracker<T> : IDisposable
 	public bool WasDisposed => _spawn is null;
 
 	internal void InitFactory(Func<Action<T>, T> factory)
-		=> _factory = factory ?? throw new ArgumentNullException(nameof(factory));
+		=> _factory ??= factory ?? throw new ArgumentNullException(nameof(factory));
 
 	public void Remove(T adapter)
 	{
@@ -55,7 +56,7 @@ internal class SpawnTracker<T> : IDisposable
 		return adapter;
 	}
 
-	public void Dispose()
+	public async ValueTask DisposeAsync()
 	{
 		var s = _spawn;
 		if (s is null)
@@ -71,10 +72,9 @@ internal class SpawnTracker<T> : IDisposable
 		}
 
 		// By using this pattern we avoid creating a new list of HashSet<T> to dispose.
-
 		foreach (var d in s)
 		{
-			try { d.Dispose(); }
+			try { await d.DisposeAsync(); }
 			catch { }
 		}
 
