@@ -1,8 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Runtime.CompilerServices;
-using System.Threading;
-
-namespace SignalR.SharedHubConnectionManager;
+﻿namespace SignalR.SharedHubConnectionManager;
 
 /// <summary>
 /// A wrapper around <see cref="HubConnection"/> that implements <see cref="IHubAdapter"/>.
@@ -106,12 +102,14 @@ public class HubConnectionAdapter : HubAdapterBase
 		 | TaskContinuationOptions.ExecuteSynchronously);
 
 		return startAsync;
-
 	}
 
-	/// <inheritdoc cref="IHubAdapter.StartAsync(CancellationToken)" />
-	public Task StartAsync(CancellationToken cancellationToken = default)
+	/// <inheritdoc cref="IHubConnectAdapter.StartAsync(CancellationToken)" />
+	public override Task StartAsync(CancellationToken cancellationToken = default)
 		=> EnsureStart(cancellationToken);
+
+	/// <inheritdoc />
+	protected override event Action<IHubAdapter>? ConnectedCore;
 
 	/// <summary>
 	/// Disposes of any spawned instances and then the underyling connection.
@@ -120,7 +118,6 @@ public class HubConnectionAdapter : HubAdapterBase
 	{
 		// Clear any connected events.
 		ConnectedCore = null;
-		_connectedEventHandlers.Clear();
 
 		Connection.Closed -= OnClosed;
 		Connection.Reconnecting -= OnReconnecting;
@@ -171,53 +168,4 @@ public class HubConnectionAdapter : HubAdapterBase
 	/// <inheritdoc />
 	public override void Remove(string methodName)
 		=> Connection.Remove(methodName);
-
-	private readonly ConcurrentDictionary<Action<IHubAdapter>, Action<IHubAdapter>> _connectedEventHandlers = new();
-	private event Action<IHubAdapter>? ConnectedCore;
-
-	/// <inheritdoc cref="IHubAdapter.Connected" />
-	public event Action<IHubAdapter>? Connected
-	{
-		add
-		{
-			AssertIsAlive();
-			ArgumentNullException.ThrowIfNull(value, nameof(value));
-
-			void LocalHandler(IHubAdapter adapter)
-			{
-				// This ensures the event is fired only once after adding.
-				if (!_connectedEventHandlers.TryRemove(value, out var handler))
-					return;
-
-				ConnectedCore -= handler;
-				ConnectedCore += value;
-				value(adapter);
-			}
-
-			// Double adding? Return.
-			if (!_connectedEventHandlers.TryAdd(value, LocalHandler))
-				return;
-
-			ConnectedCore += LocalHandler;
-
-			var startAsync = _startAsync;
-			if (startAsync is null)
-				return;
-
-			// In flight, or completed, it doesn't matter.
-			// The LocalHanlder will manage calling the value only once.
-			startAsync.ContinueWith(
-				_ => LocalHandler(this),
-				TaskContinuationOptions.OnlyOnRanToCompletion
-				| TaskContinuationOptions.ExecuteSynchronously);
-		}
-
-		remove
-		{
-			ArgumentNullException.ThrowIfNull(value, nameof(value));
-			if(_connectedEventHandlers.TryRemove(value, out var handler))
-				ConnectedCore -= handler;
-			ConnectedCore -= value;
-		}
-	}
 }

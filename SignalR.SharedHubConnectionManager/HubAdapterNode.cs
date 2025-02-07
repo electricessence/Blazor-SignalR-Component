@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.Contracts;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics.Contracts;
 
 namespace SignalR.SharedHubConnectionManager;
 
@@ -7,13 +8,13 @@ namespace SignalR.SharedHubConnectionManager;
 /// but actual connecting and disconnecting is managed by the parent adapter.
 /// </summary>
 public class HubAdapterNode(
-	IHubAdapter host, Action<HubAdapterNode> onDispose)
-	: SpawnableBase<HubAdapterNode>, IHubAdapterNode
+	IHubConnectAdapter host, Action<HubAdapterNode> onDispose)
+	: HubAdapterBase
 {
 	#region Host Aapter
-	private IHubAdapter? _host = host ?? throw new ArgumentNullException(nameof(host));
+	private IHubConnectAdapter? _host = host ?? throw new ArgumentNullException(nameof(host));
 
-	private IHubAdapter Host
+	private IHubConnectAdapter Host
 	{
 		get
 		{
@@ -28,17 +29,17 @@ public class HubAdapterNode(
 		= onDispose ?? throw new ArgumentNullException(nameof(onDispose));
 
 	/// <inheritdoc />
-	public Task SendCoreAsync(
+	public override Task SendCoreAsync(
 		string methodName, object?[] args,
 		CancellationToken cancellationToken = default)
 		// No cancellation managment needed here. Fire and forget.
-		=> host.SendCoreAsync(methodName, args, cancellationToken);
+		=> Host.SendCoreAsync(methodName, args, cancellationToken);
 
 	/// <inheritdoc />
-	public Task<object?> InvokeCoreAsync(
+	public override Task<object?> InvokeCoreAsync(
 		string methodName, Type returnType, object?[] args,
 		CancellationToken cancellationToken = default)
-		=> host.InvokeCoreAsync(methodName, returnType, args, cancellationToken);
+		=> Host.InvokeCoreAsync(methodName, returnType, args, cancellationToken);
 
 	#region CancellationToken Management
 	private readonly Lock _ctsSync = new();
@@ -75,7 +76,7 @@ public class HubAdapterNode(
 
 	#region Potentially Long-Running Cancellable Methods
 	/// <inheritdoc />
-	public Task<ChannelReader<object?>> StreamAsChannelCoreAsync(
+	public override Task<ChannelReader<object?>> StreamAsChannelCoreAsync(
 		string methodName, Type returnType, object?[] args,
 		CancellationToken cancellationToken = default)
 	{
@@ -115,7 +116,7 @@ public class HubAdapterNode(
 	}
 
 	/// <inheritdoc />
-	public IAsyncEnumerable<TResult> StreamAsyncCore<TResult>(
+	public override IAsyncEnumerable<TResult> StreamAsyncCore<TResult>(
 		string methodName, object?[] args,
 		CancellationToken cancellationToken = default)
 	{
@@ -219,17 +220,17 @@ public class HubAdapterNode(
 
 	#region Subscribable Methods
 	/// <inheritdoc />
-	public IDisposable On(
+	public override IDisposable On(
 		string methodName, Type[] parameterTypes,
 		Func<object?[], object, Task<object?>> handler, object state)
 		=> Subscribe(methodName, Host.On(methodName, parameterTypes, handler, state));
 
 	/// <inheritdoc />
-	public IDisposable On(string methodName, Type[] parameterTypes, Func<object?[], object, Task> handler, object state)
+	public override IDisposable On(string methodName, Type[] parameterTypes, Func<object?[], object, Task> handler, object state)
 		=> Subscribe(methodName, Host.On(methodName, parameterTypes, handler, state));
 
 	/// <inheritdoc />
-	public void Remove(string methodName)
+	public override void Remove(string methodName)
 	{
 		if (!_subscriptions.TryGetValue(methodName, out var subs))
 			return;
@@ -308,9 +309,14 @@ public class HubAdapterNode(
 		}
 	}
 
-	IHubAdapterNode ISpawn<IHubAdapterNode>.Spawn() => Spawn();
+	/// <inheritdoc />
+	public override Task StartAsync(CancellationToken cancellationToken = default)
+		=> Host.StartAsync(cancellationToken);
 
 	/// <inheritdoc />
-	public Task StartAsync(CancellationToken cancellationToken = default)
-		=> Host.StartAsync(cancellationToken);
+	protected override event Action<IHubAdapter>? ConnectedCore
+	{
+		add => Host.Connected += value;
+		remove => Host.Connected -= value;
+	}
 }

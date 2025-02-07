@@ -39,7 +39,13 @@ public interface IHubAdapter
 
 	/// <inheritdoc cref="HubConnection.Remove(string)"/>
 	void Remove(string methodName);
+}
 
+/// <summary>
+/// An extended <see cref="IHubAdapter"/> that can ensure a connection has started and can listen for when a connection is established/reconnected.
+/// </summary>
+public interface IHubConnectAdapter : IHubAdapter
+{
 	/// <remarks>
 	/// For a shared connection, this simply ensures a connection is open.
 	/// A connection is not automatically started when created and requires at least one call to this method to start.
@@ -53,7 +59,25 @@ public interface IHubAdapter
 	/// </summary>
 	/// <remarks>Event is fired for new subscribers if the connection is already connected.</remarks>
 	event Action<IHubAdapter> Connected;
+
+	/// <summary>
+	/// The actual task that starts the connection.
+	/// </summary>
+	/// <remarks>Will be null if the connection has yet to start or has been closed.</remarks>
+	public Task? StartTask { get; }
 }
 
 /// <inheritdoc />
-public interface IHubAdapterNode : IHubAdapter, ISpawn<IHubAdapterNode>, IAsyncDisposable;
+public interface IHubAdapterNode : IHubConnectAdapter, ISpawn<IHubAdapterNode>, IAsyncDisposable;
+
+public static partial class HubAdapterExtensions
+{
+	/// <summary>
+	/// Sets up a handler to be invoked upon verfiying a connection and then ensure the connection has been started.
+	/// </summary>
+	public static Task Start(this IHubConnectAdapter adapter, Action<IHubAdapter> onConnected, CancellationToken cancellationToken = default)
+	{
+		adapter.Connected += onConnected;
+		return adapter.StartAsync(cancellationToken);
+	}
+}
