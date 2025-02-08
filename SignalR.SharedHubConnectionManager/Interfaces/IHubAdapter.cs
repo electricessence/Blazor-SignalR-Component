@@ -26,6 +26,10 @@ public static partial class HubAdapterExtensions
 	public static IDisposable OnConnected(this IHubAdapter hubAdapter, Func<IHubAdapter, Task> action)
 		=> hubAdapter.OnConnected(() => action(hubAdapter));
 
+	/// <inheritdoc cref="IHubAdapter.OnConnected(Func{Task})"/>
+	public static IDisposable OnConnected(this IHubAdapter hubAdapter, Action<IHubAdapter> action)
+		=> hubAdapter.OnConnected(() => action(hubAdapter));
+
 	/// <summary>
 	/// Invokes the <paramref name="handler"/> when the connection is available.
 	/// Only invokes the action once and then disposes the created listener.
@@ -67,4 +71,12 @@ public static partial class HubAdapterExtensions
 			handler();
 			return Task.CompletedTask;
 		});
+
+	/// <inheritdoc cref="OnceConnected(IHubAdapter, Func{Task})"/>
+	public static IDisposable OnceConnected(this IHubAdapter hubAdapter, Func<IHubAdapter, Task> action)
+		=> hubAdapter.OnceConnected(() => action(hubAdapter));
+
+	/// <inheritdoc cref="OnceConnected(IHubAdapter, Func{Task})"/>
+	public static IDisposable OnceConnected(this IHubAdapter hubAdapter, Action<IHubAdapter> action)
+		=> hubAdapter.OnceConnected(() => action(hubAdapter));
 }
