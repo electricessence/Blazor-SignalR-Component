@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 
-namespace Open.SignalR.SharedHubConnection;
+namespace Open.SignalR.SharedClient;
 
 /// <summary>
 /// Manages persistent <see cref="HubConnection"/> instances

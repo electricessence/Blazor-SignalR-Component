@@ -1,5 +1,5 @@
 ﻿
-namespace Open.SignalR.SharedHubConnection;
+namespace Open.SignalR.SharedClient;
 
 public static partial class HubAdapterExtensions
 {

@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 
-namespace Open.SignalR.SharedHubConnection;
+namespace Open.SignalR.SharedClient;
 
 /// <inheritdoc />
 public sealed class HubAdapter(HubConnection connection) : IHubAdapter

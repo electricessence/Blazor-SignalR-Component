@@ -1,4 +1,4 @@
-﻿namespace Open.SignalR.SharedHubConnection;
+﻿namespace Open.SignalR.SharedClient;
 
 /// <summary>
 /// Represents all the <see cref="HubConnection"/> actions other than starting, stopping and disposal.

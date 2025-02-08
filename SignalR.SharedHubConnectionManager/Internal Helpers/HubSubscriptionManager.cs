@@ -1,4 +1,4 @@
-﻿namespace Open.SignalR.SharedHubConnection;
+﻿namespace Open.SignalR.SharedClient;
 
 /// <summary>
 /// A helper class for managing subscriptions to a hub by method name.

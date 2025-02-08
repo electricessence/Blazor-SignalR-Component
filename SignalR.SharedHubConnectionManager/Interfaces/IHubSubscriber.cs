@@ -1,4 +1,4 @@
-﻿namespace Open.SignalR.SharedHubConnection;
+﻿namespace Open.SignalR.SharedClient;
 
 /// <summary>
 /// Allows for subscribing to a hub's invokations.

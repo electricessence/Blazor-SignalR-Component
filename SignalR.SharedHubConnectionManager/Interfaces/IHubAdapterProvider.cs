@@ -1,4 +1,4 @@
-﻿namespace Open.SignalR.SharedHubConnection;
+﻿namespace Open.SignalR.SharedClient;
 
 /// <summary>
 /// Provides <see cref="IHubAdapter"/> instances for hub paths.
